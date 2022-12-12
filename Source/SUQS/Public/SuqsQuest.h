@@ -26,6 +26,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Objective")
 	bool bMandatory = true;
 
+	/// Whether this task is only visible when failed; only used in Widgets
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Objective")
+	bool bEphemeral = false;
 
 	/// The number of times this task needs to be completed to be checked off
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Task")

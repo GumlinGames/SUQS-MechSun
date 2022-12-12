@@ -170,7 +170,7 @@ bool USuqsTaskState::Complete(bool bIgnoreResolveBarriers)
 					*GetIdentifier().ToString(), *ParentObjective->GetIdentifier().ToString())
 				return false;
 			}
-			if (ParentObjective->AreTasksSequential())
+			if (ParentObjective->AreTasksSequential() && !IsEphemeral())
 			{
 				// Only allowed if optional or next in sequence
 				if (IsMandatory() && ParentObjective->GetNextMandatoryTask() != this)

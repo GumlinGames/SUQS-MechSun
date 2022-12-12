@@ -107,12 +107,12 @@ void USuqsProgression::RebuildAllQuestData()
 		}
 	}
 
-	const auto GI = UGameplayStatics::GetGameInstance(this);
+	/*const auto GI = UGameplayStatics::GetGameInstance(this);
 	if (IsValid(GI))
 	{
 		auto WaypointsSubSys = GI->GetSubsystem<USuqsWaypointSubsystem>();
 		WaypointsSubSys->SetProgression(this);
-	}
+	}*/
 	
 }
 

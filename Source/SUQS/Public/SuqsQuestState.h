@@ -183,6 +183,8 @@ public:
 	/// Get the unique quest identifier
 	UFUNCTION(BlueprintCallable, BlueprintPure)
     const FName& GetIdentifier() const { return QuestDefinition->Identifier; }
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool IsPlayerVisible() const { return QuestDefinition->bPlayerVisible; }
 	/// Get the quest title
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FText GetTitle() const;

@@ -79,6 +79,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool IsMandatory() const { return TaskDefinition->bMandatory; }
 	UFUNCTION(BlueprintCallable, BlueprintPure)
+	bool IsEphemeral() const { return TaskDefinition->bEphemeral; }
+	UFUNCTION(BlueprintCallable, BlueprintPure)
 	bool IsTimeLimited() const { return TaskDefinition->TimeLimit > 0; }
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	float GetTimeLimit() const { return TaskDefinition->TimeLimit; }
