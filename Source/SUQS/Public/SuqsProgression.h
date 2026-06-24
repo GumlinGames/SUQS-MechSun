@@ -150,6 +150,9 @@ class USuqsWaypointComponent;
  * Add this somewhere that's useful to you, e.g. your PlayerState or GameInstance.
  * And of course, you'll want to include it in your save games.
  * You MUST only ever have one instance of this in your game.
+ * NOTE: in multiplayer games it is not advisable to build your UI around this class directly. Only
+ * use it directly on the server to change state, and use it via USuqsGameStateComponent. On
+ * clients and server, use the FSuqsProgressView to drive your UI instead, which will work everywhere.
  */
 UCLASS(BlueprintType, Blueprintable)
 class SUQS_API USuqsProgression : public UObject, public FTickableGameObject
@@ -193,6 +196,7 @@ protected:
 	USuqsTaskState* FindTaskStatus(const FName& QuestID, const FName& TaskID);
 
 	void RebuildAllQuestData();
+	void AddQuestDefinitionInternal(const FSuqsQuest& Quest);
 	bool AutoAcceptQuests(const FName& FinishedQuestID, bool bFailed);
 	static void SaveToData(TMap<FName, USuqsQuestState*> Quests, FSuqsSaveData& Data);
 	FText FormatQuestOrTaskText(const FName& QuestID, const FName& TaskID, const FText& FormatText);
@@ -222,6 +226,39 @@ public:
 	UFUNCTION(BlueprintCallable)
     void InitWithQuestDataTablesInPaths(const TArray<FString>& Paths);
 
+	/**
+	 * Get a copy of a Quest Definition. This is mostly so that you can modify it and register it
+	 * as a new runtime quest
+	 * @param QuestID The identifier of the quest
+	 * @param OutQuest Output quest copy
+	 * @return Whether the quest was found
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool GetQuestDefinitionCopy(FName QuestID, FSuqsQuest& OutQuest);
+
+	
+	/**
+	 * Create a new runtime created quest to the system. 
+	 * @param NewQuest The new quest to add. This will be copied into the quest database. 
+	 * @param bOverwriteIfExists If a quest with this ID already exists, overwrite it if this is true.
+	 * Otherwise, report an error and do nothing.
+	 * @return Whether the quest was added
+	 * @note If you overwrite an existing quest, stored progression against it will be reset.
+	 * @note Quest definitions added at runtime will be lost by calling any of the Init..() functions, or by
+	 * forcing a quest system rebuild with the optional parameter to GetQuestDefinitions
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool CreateQuestDefinition(const FSuqsQuest& NewQuest, bool bOverwriteIfExists = false);
+
+	/**
+	 * Delete an existing quest definition from the system
+	 * @param QuestID The identifier of the quest
+	 * @return Whether the quest was removed
+	 * @note Removing a quest definition will erase any progress against it
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool DeleteQuestDefinition(FName QuestID);
+	
 	/**
 	 * Change the default time delays between completing / failing a quest item, and the knock-on effects of that
 	 * (the next task/objective/quest being activated).
@@ -413,6 +450,15 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable)
 	int ProgressTask(FName QuestID, FName TaskIdentifier, int Delta);
+
+	/**
+	 * Directly set the current completed number on a specific task. An alternative to the delta version ProgressTask. 
+	 * @param QuestID The ID of the quest. If None, will scan all active quests and set any task with TaskIdentifier
+	 * @param TaskIdentifier The identifier of the task within the quest
+	 * @param Number The number of completed items to set the task to
+	 */
+	UFUNCTION(BlueprintCallable)
+	void SetTaskNumberCompleted(FName QuestID, FName TaskIdentifier, int Number);
 
 	/**
 	 * Resolve the outcome of a completed/failed task; activate the next task, or complete/fail the quest if it's the last.

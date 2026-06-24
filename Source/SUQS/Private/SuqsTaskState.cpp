@@ -58,7 +58,14 @@ void USuqsTaskState::SetTimeRemaining(float T)
 		if (TimeRemaining <= 0)
 		{
 			TimeRemaining = 0;
-			Fail();
+			if (TaskDefinition->TimeLimitCompleteOnExpiry)
+			{
+				Complete();
+			}
+			else
+			{
+				Fail();
+			}
 		}
 	}	
 }
@@ -85,6 +92,7 @@ void USuqsTaskState::ChangeStatus(ESuqsTaskStatus NewStatus, bool bIgnoreResolve
 			Progression->RaiseTaskFailed(this);
 			break;
 		default:
+			Progression->RaiseTaskUpdated(this);
 			break;
 		}
 
@@ -254,7 +262,8 @@ void USuqsTaskState::NotifyGateOpened(const FName& GateName)
 
 bool USuqsTaskState::IsHiddenOnCompleteOrFail() const
 {
-	return IsMandatory() && (ParentObjective.IsValid() && ParentObjective->AreTasksSequential());
+	return !TaskDefinition->bAlwaysVisible && IsMandatory() &&
+		(ParentObjective.IsValid() && ParentObjective->AreTasksSequential());
 }
 
 bool USuqsTaskState::IsRelevant() const

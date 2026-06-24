@@ -17,6 +17,7 @@ void USuqsQuestState::Initialise(const FSuqsQuest* Def, USuqsProgression* Root)
 	QuestDefinition = Def;
 	Progression = Root;
 	Status = ESuqsQuestStatus::Incomplete;
+	ResolveBarrier = Progression->GetResolveBarrierForQuest(QuestDefinition, Status);
 	FastTaskLookup.Empty();
 	ActiveBranches.Empty();
 
@@ -142,12 +143,30 @@ int USuqsQuestState::ProgressTask(FName TaskID, int Delta)
 	return 0;
 }
 
+void USuqsQuestState::SetTaskNumberCompleted(FName TaskID, int Number)
+{
+	if (auto T = GetTask(TaskID))
+	{
+		return T->SetNumber(Number);
+	}
+}
+
 FText USuqsQuestState::GetTitle() const
 {
 	if (bTitleNeedsFormatting)
 		return GetRootProgression()->FormatQuestText(GetIdentifier(), QuestDefinition->Title);
 	else
 		return QuestDefinition->Title;
+}
+
+const TArray<FName>& USuqsQuestState::GetLabels() const
+{
+	return QuestDefinition->Labels;
+}
+
+bool USuqsQuestState::IsPlayerVisible() const
+{
+	return QuestDefinition->bPlayerVisible;
 }
 
 FText USuqsQuestState::GetDescription() const
@@ -406,8 +425,10 @@ void USuqsQuestState::NotifyObjectiveStatusChanged()
 
 	// If any unfiltered objectives failed, we lose
 	if (FailQuest)
-		ChangeStatus(ESuqsQuestStatus::Failed);
-	else if (CurrentObjectiveIndex == -1)
+	{
+	  ChangeStatus(ESuqsQuestStatus::Failed);
+	}
+  else if (CurrentObjectiveIndex == -1)
 	{
 		// No incomplete objectives, and no failures
 		ChangeStatus(ESuqsQuestStatus::Completed);
@@ -440,8 +461,6 @@ void USuqsQuestState::NotifyObjectiveStatusChanged()
 			}
 		}
 	}
-	
-
 }
 
 void USuqsQuestState::OverrideStatus(ESuqsQuestStatus OverrideStatus)
@@ -458,8 +477,9 @@ void USuqsQuestState::NotifyGateOpened(const FName& GateName)
 		Obj->NotifyGateOpened(GateName);
 	}
 
-	if (IsResolveBlockedOn(ESuqsResolveBarrierCondition::Gate) && ResolveBarrier.Gate == GateName)
-		MaybeNotifyStatusChange();
+	if (IsResolveBlockedOn(ESuqsResolveBarrierCondition::Gate) && ResolveBarrier.Gate == GateName) {
+	  MaybeNotifyStatusChange();
+	}
 }
 
 void USuqsQuestState::ChangeStatus(ESuqsQuestStatus NewStatus)
@@ -492,7 +512,6 @@ void USuqsQuestState::QueueStatusChangeNotification()
 
 	// May immediately be satisfied
 	MaybeNotifyStatusChange();
-	
 }
 
 bool USuqsQuestState::IsResolveBlockedOn(ESuqsResolveBarrierCondition Barrier) const

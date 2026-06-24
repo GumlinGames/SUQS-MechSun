@@ -49,6 +49,51 @@ void USuqsProgression::InitWithQuestDataTablesInPaths(const TArray<FString>& Pat
 	InitWithQuestDataTables(DataTables);
 }
 
+bool USuqsProgression::GetQuestDefinitionCopy(FName QuestID, FSuqsQuest& OutQuest)
+{
+	auto QDef = QuestDefinitions.Find(QuestID);
+	if (QDef)
+	{
+		OutQuest = *QDef;
+		return true;
+	}
+
+	return false;
+}
+
+bool USuqsProgression::CreateQuestDefinition(const FSuqsQuest& NewQuest, bool bOverwriteIfExists)
+{
+	if (NewQuest.Identifier.IsNone())
+	{
+		UE_LOG(LogSUQS, Error, TEXT("CreateQuestDefinition: Identifier is None"));
+		return false;
+	}
+
+	auto QDef = QuestDefinitions.Find(NewQuest.Identifier);
+	if (QDef)
+	{
+		if (!bOverwriteIfExists)
+		{
+			UE_LOG(LogSUQS, Warning, TEXT("CreateQuestDefinition: Identifier '%s' exists, not overwriting"), *NewQuest.Identifier.ToString());
+			return false;
+		}
+		// Delete to re-use add impl
+		DeleteQuestDefinition(NewQuest.Identifier);
+	}
+
+	// Add new
+	AddQuestDefinitionInternal(NewQuest);
+	return true;
+}
+
+bool USuqsProgression::DeleteQuestDefinition(FName QuestID)
+{
+	// Remove quest status first, since that holds raw pointers to quest defs
+	RemoveQuest(QuestID, true, true);
+	// Remove definition
+	return QuestDefinitions.Remove(QuestID) > 0;
+}
+
 void USuqsProgression::SetDefaultProgressionTimeDelays(float QuestDelay, float TaskDelay)
 {
 	DefaultQuestResolveTimeDelay = QuestDelay;
@@ -73,35 +118,13 @@ void USuqsProgression::RebuildAllQuestData()
 			UE_LOG(LogSUQS, Verbose, TEXT("Loading quest definitions from %s"), *Table->GetName());
 			Table->ForeachRow<FSuqsQuest>("", [this, Table](const FName& Key, const FSuqsQuest& Quest)
             {
-                if (QuestDefinitions.Contains(Quest.Identifier))
-                	UE_LOG(LogSUQS, Error, TEXT("Quest ID '%s' has been used more than once! Duplicate entry was in %s"), *Quest.Identifier.ToString(), *Table->GetName());
-
-                // Check task IDs are unique
-                TSet<FName> TaskIDSet;
-                for (auto& Objective : Quest.Objectives)
-                {
-                    for (auto& Task : Objective.Tasks)
-                    {
-                        bool bDuplicate;
-                        TaskIDSet.Add(Task.Identifier, &bDuplicate);
-                        if (bDuplicate)
-                        	UE_LOG(LogSUQS, Error, TEXT("Task ID '%s' has been used more than once! Duplicate entry title: %s"), *Task.Identifier.ToString(), *Task.Title.ToString());
-                    }
-                }
-				
-                QuestDefinitions.Add(Quest.Identifier, Quest);
-
-				// Record dependencies
-				if (Quest.AutoAccept)
+				if (QuestDefinitions.Contains(Quest.Identifier))
 				{
-					for (auto& CompletedQuest : Quest.PrerequisiteQuests)
-					{
-                        QuestCompletionDeps.Add(CompletedQuest, Quest.Identifier);
-                    }
-                    for (auto& FailedQuest : Quest.PrerequisiteQuestFailures)
-                    {
-                        QuestFailureDeps.Add(FailedQuest, Quest.Identifier);
-                    }
+					UE_LOG(LogSUQS, Error, TEXT("Quest ID '%s' has been used more than once! Duplicate entry was in %s"), *Quest.Identifier.ToString(), *Table->GetName());
+				}
+				else
+				{
+					AddQuestDefinitionInternal(Quest);
 				}
             });
 		}
@@ -114,6 +137,37 @@ void USuqsProgression::RebuildAllQuestData()
 		WaypointsSubSys->SetProgression(this);
 	}*/
 	
+}
+
+void USuqsProgression::AddQuestDefinitionInternal(const FSuqsQuest& Quest)
+{
+	// Check task IDs are unique
+	TSet<FName> TaskIDSet;
+	for (auto& Objective : Quest.Objectives)
+	{
+		for (auto& Task : Objective.Tasks)
+		{
+			bool bDuplicate;
+			TaskIDSet.Add(Task.Identifier, &bDuplicate);
+			if (bDuplicate)
+				UE_LOG(LogSUQS, Error, TEXT("Task ID '%s' has been used more than once! Duplicate entry title: %s"), *Task.Identifier.ToString(), *Task.Title.ToString());
+		}
+	}
+				
+	QuestDefinitions.Add(Quest.Identifier, Quest);
+
+	// Record dependencies
+	if (Quest.AutoAccept)
+	{
+		for (auto& CompletedQuest : Quest.PrerequisiteQuests)
+		{
+			QuestCompletionDeps.Add(CompletedQuest, Quest.Identifier);
+		}
+		for (auto& FailedQuest : Quest.PrerequisiteQuestFailures)
+		{
+			QuestFailureDeps.Add(FailedQuest, Quest.Identifier);
+		}
+	}
 }
 
 const TMap<FName, FSuqsQuest>& USuqsProgression::GetQuestDefinitions(bool bForceRebuild)
@@ -399,6 +453,26 @@ int USuqsProgression::ProgressTask(FName QuestID, FName TaskIdentifier, int Delt
 			return T->Progress(Delta);
 		}
 		return 0;
+	}
+}
+
+void USuqsProgression::SetTaskNumberCompleted(FName QuestID, FName TaskIdentifier, int Number)
+{
+	if (QuestID.IsNone())
+	{
+		int MaxLeft = 0;
+		for (auto Pair : ActiveQuests)
+		{
+			Pair.Value->SetTaskNumberCompleted(TaskIdentifier, Number);
+		}
+	}
+	else
+	{
+		auto T = FindTaskStatus(QuestID, TaskIdentifier);
+		if (T)
+		{
+			return T->SetNumber(Number);
+		}
 	}
 }
 
@@ -787,6 +861,13 @@ void USuqsProgression::RaiseTaskUpdated(USuqsTaskState* Task)
 	{
 		OnTaskUpdated.Broadcast(Task);
 		OnProgressionEvent.Broadcast(FSuqsProgressionEventDetails(ESuqsProgressionEventType::TaskUpdated, Task));
+		
+		// A task that hasn't changed visibility but has changed status may need its waypoints enabling/disabling
+		auto Waypoints = Task->GetWaypoints(false);
+		for (auto W : Waypoints)
+		{
+			W->SetIsCurrent(Task->IsIncomplete());
+		}
 	}
 }
 
@@ -1016,28 +1097,24 @@ FSuqsResolveBarrier USuqsProgression::GetResolveBarrierForQuest(const FSuqsQuest
 {
 	FSuqsResolveBarrier Barrier;
 
-	if (Status == ESuqsQuestStatus::Completed ||
-		Status == ESuqsQuestStatus::Failed)
+	if (DefaultQuestResolveTimeDelay > 0)
 	{
-		if (DefaultQuestResolveTimeDelay > 0)
-		{
-			Barrier.Conditions |= static_cast<int>(ESuqsResolveBarrierCondition::Time);
-			Barrier.TimeRemaining = DefaultQuestResolveTimeDelay;
-		}
-		if (Quest->ResolveDelay >= 0) // >= because default is -1, so that 0 can override >0 default
-		{
-			Barrier.Conditions |= static_cast<int>(ESuqsResolveBarrierCondition::Time);
-			Barrier.TimeRemaining = Quest->ResolveDelay;
-		}
-		if (!Quest->ResolveGate.IsNone())
-		{
-			Barrier.Conditions |= static_cast<int>(ESuqsResolveBarrierCondition::Gate);
-			Barrier.Gate = Quest->ResolveGate;
-		}
-		if (!Quest->bResolveAutomatically)
-		{
-			Barrier.Conditions |= static_cast<int>(ESuqsResolveBarrierCondition::Explicit);
-		}
+		Barrier.Conditions |= static_cast<int>(ESuqsResolveBarrierCondition::Time);
+		Barrier.TimeRemaining = DefaultQuestResolveTimeDelay;
+	}
+	if (Quest->ResolveDelay >= 0) // >= because default is -1, so that 0 can override >0 default
+	{
+		Barrier.Conditions |= static_cast<int>(ESuqsResolveBarrierCondition::Time);
+		Barrier.TimeRemaining = Quest->ResolveDelay;
+	}
+	if (!Quest->ResolveGate.IsNone())
+	{
+		Barrier.Conditions |= static_cast<int>(ESuqsResolveBarrierCondition::Gate);
+		Barrier.Gate = Quest->ResolveGate;
+	}
+	if (!Quest->bResolveAutomatically)
+	{
+		Barrier.Conditions |= static_cast<int>(ESuqsResolveBarrierCondition::Explicit);
 	}
 
 	// Always pending, even if no condition, since need to raise event once

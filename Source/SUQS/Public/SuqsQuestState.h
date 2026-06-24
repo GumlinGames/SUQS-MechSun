@@ -188,6 +188,13 @@ public:
 	/// Get the quest title
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	FText GetTitle() const;
+	/// Get quest labels
+	const TArray<FName>& GetLabels() const;
+
+	/// Get whether the underlying quest is player-visible
+	bool IsPlayerVisible() const;
+
+
 	/// Get the current description for this quest (just the top-level description)
 	/// For any additional objective description, see GetCurrentObjective()->GetDescription();
 	UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -243,6 +250,13 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable)
 	int ProgressTask(FName TaskID, int Delta);
+
+	/**
+	 * Directly set the current completed number on a specific task. An alternative to the delta version ProgressTask. 
+	 * @param TaskID The identifier of the task within the quest
+	 * @param Number The number of completed items to set the task to
+	 */
+	void SetTaskNumberCompleted(FName TaskID, int Number);
 
 	/// Get the current objective on this quest. Will return null if quest is complete.
 	UFUNCTION(BlueprintCallable, BlueprintPure)

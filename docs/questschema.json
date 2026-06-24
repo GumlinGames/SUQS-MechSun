@@ -12,6 +12,13 @@
           "description": "Identifier of this quest. Required. Must be globally unique across all quests in all data files",
           "type": "string"
         },
+        "Labels": {
+          "description": "Optional list of labels to associate with the quest. Could be used for categorisation etc",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "bPlayerVisible": {
           "description": "Whether it's suggested to display this quest to players, or whether it's for internal tracking only.",
           "type": "boolean",
@@ -82,7 +89,7 @@
                   "type": "string"
                 },
                 "Title": {
-                  "description": "Player-viaible title for the objective. Can be blank if you only have one task or do not wish to display this level",
+                  "description": "Player-viable title for the objective. Can be blank if you only have one task or do not wish to display this level",
                   "type": "string"
                 },
                 "DescriptionWhenActive": {
@@ -124,6 +131,13 @@
                           "description": "Identifier for the task. Required. Must be unique within the Quest (not just the objective)",
                           "type": "string"
                         },
+                        "Labels": {
+                          "description": "Optional list of labels to associate with the task. Could be used for categorisation etc",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
                         "Title": {
                           "description": "Player-visible title for the task.",
                           "type": "string"
@@ -143,6 +157,11 @@
                           "type": "number",
                           "default": 0
                         },
+                        "TimeLimitCompleteOnExpiry": {
+                          "description": "If TimeLimit is > 0, whether the task auto-completes on expiry, or fails (default)",
+                          "type": "boolean",
+                          "default": false
+                        },
                         "bResolveAutomatically": {
                           "description": "Whether to resolve the outcomes of completion / failure automatically (default true) or to require explicit ResolveTask call.",
                           "type": "boolean",
@@ -156,6 +175,11 @@
                         "ResolveGate": {
                           "description": "Optional Gate name; after completion / failure of this objective, knock-on effects won't occur until the Gate of this name is opened on the Progression instance (activating next task, completing/failing quest)",
                           "type": "string"
+                        },
+                        "bAlwaysVisible": {
+                          "description": "If true, overrides the usual behaviour of automatically hiding tasks when they're resolved and if they're mandatory and sequential.",
+                          "type": "boolean",
+                          "default": true
                         }
                       },
                       "required": [
