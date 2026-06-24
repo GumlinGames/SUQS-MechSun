@@ -191,10 +191,6 @@ public:
 	/// Get quest labels
 	const TArray<FName>& GetLabels() const;
 
-	/// Get whether the underlying quest is player-visible
-	bool IsPlayerVisible() const;
-
-
 	/// Get the current description for this quest (just the top-level description)
 	/// For any additional objective description, see GetCurrentObjective()->GetDescription();
 	UFUNCTION(BlueprintCallable, BlueprintPure)
